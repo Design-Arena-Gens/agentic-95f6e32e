@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Enums
+enum Category {
+  TECH
+  LIFE
+  CAREER
+  RELATIONSHIP
+  STUDY
+  BUSINESS
+  EMOTIONAL
+  OTHER
+}
+
+enum TargetType {
+  PROBLEM
+  SOLUTION
+}
+
+enum BadgeLevel {
+  NONE
+  HELPER
+  EXPERT
+  GENIUS
+}
+
+/// Models
+model User {
+  id          String   @id @default(cuid())
+  email       String?  @unique
+  phone       String?  @unique
+  name        String?
+  image       String?
+  reputation  Int      @default(0)
+  badge       BadgeLevel @default(NONE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  problems    Problem[]
+  solutions   Solution[]
+  votes       Vote[]
+  notifications Notification[] @relation("UserNotifications")
+}
+
+model OtpCode {
+  id         String   @id @default(cuid())
+  email      String?
+  phone      String?
+  code       String
+  purpose    String   // login, verify
+  expiresAt  DateTime
+  consumed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Problem {
+  id          String    @id @default(cuid())
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  title       String
+  description String
+  media       Json?
+  category    Category
+  score       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  solutions   Solution[]
+  votes       Vote[]    @relation("ProblemVotes")
+}
+
+model Solution {
+  id         String    @id @default(cuid())
+  problemId  String
+  problem    Problem   @relation(fields: [problemId], references: [id])
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id])
+  content    String
+  score      Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  votes      Vote[]    @relation("SolutionVotes")
+}
+
+model Vote {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  targetType  TargetType
+  problemId   String?
+  problem     Problem?   @relation("ProblemVotes", fields: [problemId], references: [id])
+  solutionId  String?
+  solution    Solution?  @relation("SolutionVotes", fields: [solutionId], references: [id])
+  value       Int        // -1 or 1
+  createdAt   DateTime   @default(now())
+
+  @@unique([userId, targetType, problemId, solutionId])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("UserNotifications", fields: [userId], references: [id])
+  type        String
+  refType     TargetType
+  problemId   String?
+  solutionId  String?
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
